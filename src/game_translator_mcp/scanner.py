@@ -103,14 +103,30 @@ def _should_skip(path: Path, root: Path) -> bool:
     return False
 
 
+def _default_max_size() -> int:
+    """读取可配置的最大文件大小阈值（字节）。
+
+    通过环境变量 ``SCAN_MAX_SIZE_MB``（单位 MB，支持小数）覆盖，
+    默认 10MB。用于跳过疑似二进制的超大文本。
+    """
+    raw = os.environ.get("SCAN_MAX_SIZE_MB", "10")
+    try:
+        mb = max(0.0, float(raw))
+    except ValueError:
+        mb = 10.0
+    return int(mb * 1024 * 1024)
+
+
 def scan_directory(
     directory: str | Path,
     extensions: Optional[Iterable[str]] = None,
     skip_patterns: Optional[frozenset[str]] = None,
+    max_size_bytes: Optional[int] = None,
 ) -> list[TranslatableFile]:
     """扫描目录，返回所有可翻译文件列表。
 
-    按文件大小过滤：超过 10MB 的二进制文件会被跳过。
+    按文件大小过滤：超过阈值（默认 10MB，可用 ``max_size_bytes`` 参数或
+    环境变量 ``SCAN_MAX_SIZE_MB`` 调整）的文件会被跳过，防止误扫二进制。
     """
     base = Path(directory).resolve()
     if not base.is_dir():
@@ -121,7 +137,10 @@ def scan_directory(
         allowed |= {e.lower() if e.startswith(".") else f".{e.lower()}" for e in extensions}
 
     results: list[TranslatableFile] = []
-    max_size = 10 * 1024 * 1024  # 10MB
+    if max_size_bytes is None:
+        max_size = _default_max_size()
+    else:
+        max_size = max(0, int(max_size_bytes))
 
     for path in sorted(base.rglob("*")):
         if not path.is_file():

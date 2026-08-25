@@ -51,12 +51,14 @@ class TranslateResult(BaseModel):
 async def scan_game_directory(
     directory: str,
     extensions: Optional[list[str]] = None,
+    max_size_mb: Optional[float] = None,
 ) -> str:
     """扫描游戏目录，返回所有可翻译文件清单及文本量估算。
 
     Args:
         directory: 游戏安装目录或包含语言文件的目录路径
         extensions: 额外要扫描的文件扩展名列表（不含点号），默认扫描所有支持格式
+        max_size_mb: 允许的最大文件大小（MB），超过则跳过（默认 10；部分游戏明文文件可能更大，可自行调高）
     Returns:
         JSON 字符串，包含文件列表、格式分布、总条目数
     """
@@ -64,7 +66,8 @@ async def scan_game_directory(
     if not base.exists():
         return json.dumps({"error": f"目录不存在: {base}"}, ensure_ascii=False, indent=2)
 
-    files = scan_directory(base, extensions=extensions)
+    files = scan_directory(base, extensions=extensions,
+                           max_size_bytes=int(max_size_mb * 1024 * 1024) if max_size_mb is not None else None)
     fmt_counts: dict[str, int] = {}
     total_entries = 0
     file_list = []
@@ -102,6 +105,7 @@ async def translate_game(
     force_retranslate: bool = False,
     backup: bool = True,
     game_name: str = "",
+    max_size_mb: Optional[float] = None,
 ) -> str:
     """执行完整汉化流程：扫描 → 翻译 → 回写 → 生成报告。
 
@@ -112,6 +116,7 @@ async def translate_game(
         force_retranslate: 强制重新翻译（忽略缓存）
         backup: 回写前是否备份原文件
         game_name: 游戏名称，用于报告标题
+        max_size_mb: 允许的最大文件大小（MB），超过则跳过（默认 10）
     Returns:
         汉化报告 JSON 字符串
     """
@@ -131,7 +136,7 @@ async def translate_game(
         writer = GameWriter(Path(config.output_dir), source_root=Path(target))
         reporter = ReportGenerator()
 
-        files = scan_directory(target)
+        files = scan_directory(target, max_size_bytes=int(max_size_mb * 1024 * 1024) if max_size_mb is not None else None)
         results: list[FileResult] = []
         total_entries = 0
         translated_entries = 0
@@ -194,7 +199,7 @@ async def translate_game(
 # 工具 3：preview_translate_game（零成本预览，不调 AI API）
 # ============================================================
 @mcp.tool()
-async def preview_translate_game(directory: str) -> str:
+async def preview_translate_game(directory: str, max_size_mb: Optional[float] = None) -> str:
     """（零成本）预览汉化范围：列出将被处理的文件、每种格式数量、总条目数与预估翻译量。
 
     只做扫描与解析，**不调用任何 AI 翻译 API、不消耗 token、不写文件**，
@@ -202,6 +207,7 @@ async def preview_translate_game(directory: str) -> str:
 
     Args:
         directory: 游戏目录或语言文件目录
+        max_size_mb: 允许的最大文件大小（MB），超过则跳过（默认 10）
     Returns:
         JSON：文件清单 + 格式分布 + 总条目数 + 预估字符量/估算 token
     """
@@ -209,7 +215,7 @@ async def preview_translate_game(directory: str) -> str:
     if not base.exists():
         return json.dumps({"error": f"目录不存在: {base}"}, ensure_ascii=False, indent=2)
 
-    files = scan_directory(base)
+    files = scan_directory(base, max_size_bytes=int(max_size_mb * 1024 * 1024) if max_size_mb is not None else None)
     fmt_counts: dict[str, int] = {}
     total_entries = 0
     total_chars = 0
@@ -252,6 +258,7 @@ async def dry_run_translate(
     directory: str,
     modid: str = "game",
     limit: int = 50,
+    max_size_mb: Optional[float] = None,
 ) -> str:
     """预览翻译效果：解析文件但不实际修改任何内容，输出翻译预览。
 
@@ -259,6 +266,7 @@ async def dry_run_translate(
         directory: 游戏目录路径
         modid: 模组标识
         limit: 最多预览的条目数
+        max_size_mb: 允许的最大文件大小（MB），超过则跳过（默认 10）
     Returns:
         JSON 预览结果，包含原文和翻译对比
     """
@@ -272,7 +280,7 @@ async def dry_run_translate(
         cache = TranslationCache(cache_path)
         translator = Translator(config, cache)
 
-        files = scan_directory(target)
+        files = scan_directory(target, max_size_bytes=int(max_size_mb * 1024 * 1024) if max_size_mb is not None else None)
         previews: list[dict] = []
         remaining = limit
 

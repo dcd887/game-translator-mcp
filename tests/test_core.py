@@ -69,6 +69,20 @@ class TestScanDirectory:
         results = scan_directory(tmp_path)
         assert len(results) == 0
 
+    def test_large_file_included_with_custom_threshold(self, tmp_path: Path):
+        big = b"x" * (11 * 1024 * 1024)  # 11 MB（超过默认 10MB）
+        self._make_files(tmp_path, {"huge.json": big})
+        # 默认阈值下会被跳过
+        assert len(scan_directory(tmp_path)) == 0
+        # 传参调高阈值后不再跳过（超过 11MB 才跳过）
+        assert len(scan_directory(tmp_path, max_size_bytes=12 * 1024 * 1024)) == 1
+
+    def test_env_var_threshold(self, tmp_path: Path, monkeypatch):
+        big = b"x" * (11 * 1024 * 1024)  # 11 MB
+        self._make_files(tmp_path, {"huge.json": big})
+        monkeypatch.setenv("SCAN_MAX_SIZE_MB", "12")
+        assert len(scan_directory(tmp_path)) == 1
+
     def test_skips_texture_dir(self, tmp_path: Path):
         self._make_files(tmp_path, {
             "assets/textures/font.png": b"notreal",

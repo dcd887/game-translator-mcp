@@ -23,7 +23,7 @@
 - Unity 打包的 `.pak` / `.vpk` / `catalog.json` 二进制资源，需先解包才能处理
 - 幻兽帕鲁等使用 `.locres` 的 Unreal 游戏，需 UnrealPak 解包
 - 战雷 / 绝地求生等服务端下发或加密的文本，不提供破解支持
-- 超过 10MB 的文本文件（防误扫二进制），扫描时自动跳过
+- 单个文本文件超过大小阈值（默认 10MB，防误扫二进制），扫描时跳过 —— **阈值可用 `--max-size-mb N` 或环境变量 `SCAN_MAX_SIZE_MB` 调高**（部分游戏明文配置刚好超 10MB 时很有用）
 
 > 提示：Unity 游戏虽有大量 `.json`/`.xml`，但多数是引擎配置而非游戏文案；扫描器会如实返回，是否值得翻译由使用者判断。
 
@@ -81,6 +81,7 @@ TRANSLATOR_MODEL=your-model
 
 BATCH_SIZE=15                # 每批翻译条数，越高越省 token
 OUTPUT_DIR=translated_output # 汉化输出目录
+SCAN_MAX_SIZE_MB=10          # 单个文本文件大小阈值（MB），超过跳过；明文文件较大的游戏可调高
 ```
 
 > 配置优先级：先读环境变量，其次读项目根目录 `.env` 文件，最后为内置默认值。
@@ -130,6 +131,9 @@ LangChain Agent 集成（`PYTHONPATH` 指向 `src/`）：
 ```bash
 # 零成本预览：先看会扫到哪些文件、多少条文本、预估多少 token（不调用 AI、不写文件）
 python -m game_translator_mcp preview <游戏目录路径>
+
+# 若游戏的明文配置文件超过 10MB 被跳过，可用 --max-size-mb 调高阈值再扫
+python -m game_translator_mcp preview <游戏目录路径> --max-size-mb 30
 
 # 扫描游戏目录，列出可翻译文件
 python -m game_translator_mcp check <游戏目录路径>
