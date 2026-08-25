@@ -8,7 +8,7 @@ import re
 from pathlib import Path
 from typing import Optional
 
-from .parser import TextParser, decode_text
+from .parser import TextParser, decode_text, _tokenize_rpy, _tokenize_srt, _tokenize_ass
 
 
 class WriteError(Exception):
@@ -32,6 +32,59 @@ def _detect_encoding(raw: bytes) -> tuple[str, bytes]:
 
 def _vdf_escape(s: str) -> str:
     return s.replace("\\", "\\\\").replace('"', '\\"')
+
+
+def _xml_escape(s: str) -> str:
+    return (
+        s.replace("&", "&amp;").replace("<", "&lt;")
+        .replace(">", "&gt;").replace('"', "&quot;")
+    )
+
+
+def _serialize_po(entries: dict[str, str]) -> str:
+    """重建 gettext .po：每项 msgid=原文、msgstr=译文。"""
+    lines = ['msgid ""', 'msgstr ""', '"Content-Type: text/plain; charset=UTF-8\\n"', ""]
+    for k, v in entries.items():
+        kid = k.replace('"', '\\"').replace("\\", "\\\\")
+        vid = v.replace('"', '\\"').replace("\\", "\\\\")
+        lines.append(f'msgid "{kid}"')
+        lines.append(f'msgstr "{vid}"')
+        lines.append("")
+    return "\n".join(lines).rstrip() + "\n"
+
+
+def _serialize_xliff(entries: dict[str, str]) -> str:
+    """重建 XLIFF：<trans-unit><source>原文</source><target>译文</target></trans-unit>。"""
+    parts = [
+        '<?xml version="1.0" encoding="UTF-8"?>',
+        '<xliff version="1.2" xmlns="urn:oasis:names:tc:xliff:document:1.2">',
+        '  <file original="" datatype="plaintext"><body>',
+    ]
+    for i, (k, v) in enumerate(entries.items(), start=1):
+        parts.append(f'    <trans-unit id="{i}">')
+        parts.append(f'      <source>{_xml_escape(k)}</source>')
+        parts.append(f'      <target>{_xml_escape(v)}</target>')
+        parts.append("    </trans-unit>")
+    parts += ["  </body></file>", "</xliff>", ""]
+    return "\n".join(parts)
+
+
+def _serialize_embed(entries: dict[str, str], raw: bytes, fmt: str) -> bytes:
+    """嵌入式格式（rpy/srt/ass）原位回填。
+
+    用与解析阶段相同的 tokenizer 在原始文件上重建「带 token 的骨架」，
+    再把每个 token 原位替换为译文，其余结构（脚本/时间戳/样式）原样保留。
+    """
+    if not raw:
+        return raw
+    text = decode_text(raw)
+    tokenizers = {"rpy": _tokenize_rpy, "srt": _tokenize_srt, "ass": _tokenize_ass}
+    tokenize = tokenizers.get(fmt, _tokenize_rpy)
+    skeleton, _ = tokenize(text)
+    for token, value in entries.items():
+        if token.startswith("\x02ETS"):
+            skeleton = skeleton.replace(token, value)
+    return skeleton.encode("utf-8")
 
 
 def _serialize_vdf(entries: dict[str, str], raw: bytes) -> bytes:
@@ -109,7 +162,7 @@ class GameWriter:
             out_path = Path(str(self.output_root) + ("/" + rel_str if rel_str else "" + file_info.path.name))
             out_path.parent.mkdir(parents=True, exist_ok=True)
 
-        data = self._serialize(entries, fmt, file_info.raw_data if fmt == "vdf" else None)
+        data = self._serialize(entries, fmt, file_info.raw_data if fmt in ("vdf", "rpy", "srt", "ass") else None)
         out_path.write_bytes(data)
         return str(out_path)
 
@@ -148,6 +201,27 @@ class GameWriter:
         if fmt == "tsv":
             lines = [f"{k}\t{v}" for k, v in entries.items()]
             return ("\n".join(lines) + "\n").encode("utf-8")
+        if fmt == "csv":
+            lines = [f"{k},{v}" for k, v in entries.items()]
+            return ("\n".join(lines) + "\n").encode("utf-8")
+        if fmt == "properties":
+            lines = [f"{k}={v}" for k, v in entries.items()]
+            return ("\n".join(lines) + "\n").encode("utf-8")
+        if fmt == "po":
+            return _serialize_po(entries).encode("utf-8")
+        if fmt == "strings":
+            lines = [f'"{k}" = "{v}";' for k, v in entries.items()]
+            return ("\n".join(lines) + "\n").encode("utf-8")
+        if fmt == "resx":
+            parts = ['<?xml version="1.0" encoding="utf-8"?>', "<root>"]
+            for k, v in entries.items():
+                parts.append(f'  <data name="{k}"><value>{_xml_escape(v)}</value></data>')
+            parts.append("</root>")
+            return ("\n".join(parts) + "\n").encode("utf-8")
+        if fmt == "xliff":
+            return _serialize_xliff(entries).encode("utf-8")
+        if fmt in ("rpy", "srt", "ass"):
+            return _serialize_embed(entries, raw or b"", fmt)
         raise ValueError(f"不支持的格式: {fmt!r}")
 
     @classmethod

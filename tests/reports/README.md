@@ -8,7 +8,7 @@
 - 平台：Windows / Python 3.14
 - 翻译供应商：agnes ai（OpenAI 兼容，`agnes-2.5-flash`）
 - 测试方式：将游戏本地化文件复制到本地副本 → 完整汉化 → 对比验证
-- 单测：72/72 passed
+- 单测：87/87 passed
 
 ---
 
@@ -64,6 +64,25 @@ Portal 2 的本地化文案以 **VDF**（Valve 键值格式）明文存储（`.t
 ## ✅ Biped 2 — 明文 `key=value` 可汉化
 
 `Biped2_Data/StreamingAssets/LocalizationData/localization_en.txt` 为 **UTF-8 `key=value`** 明文，**928** 条（含所有关卡名、按钮、提示文案），现有 `.txt` 解析器即可直接汉化，无需新格式支持。
+
+---
+
+## ✅ 新增 8 类明文格式（真实翻译 + 回写验证）
+
+为覆盖无专属格式识别的游戏/字幕/脚本，一次新增并实测了以下明文格式：
+
+| 格式 | 解析策略 | 真实翻译样例（agnes ai） |
+|------|----------|--------------------------|
+| `.csv` | 取 `key,value` 两列 | `quit,退出游戏` |
+| `.properties` | `key=value` | `new_game=新游戏` |
+| `.po` | `msgid→msgstr`（翻译源文本写入 msgstr） | `msgid "Continue"` → `msgstr "继续"` |
+| `.strings` | `"key" = "value";` | `"TIP" = "注意氧气";` |
+| `.resx` | `<data name><value>` | `Level → 关卡3` |
+| `.xliff` | `<trans-unit><source><target>` | `Damage → 伤害` |
+| `.rpy` | **原位 token 回填**，保留脚本结构 | `e "你在一个陌生的星球醒来。"` |
+| `.srt` / `.ass` | **原位 token 回填**，保留时间轴 | 字幕文本全部汉化 |
+
+> 其中 `.rpy`(Ren'Py 视觉小说/galgame)、`.srt/.ass`(字幕) 属于「脚本/字幕 + 文本」混合体，翻译器以唯一 token 占位后原位替换，只改文本、不破坏脚本语法与字幕时间轴。为保证嵌入 token 类键能稳定回填，翻译结果改为按**输出顺序**对齐（模型无需原样回显键）。
 
 ---
 

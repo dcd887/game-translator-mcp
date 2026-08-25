@@ -22,6 +22,8 @@ from .parser import TextParser
 
 SUPPORTED_EXTENSIONS: frozenset[str] = frozenset({
     ".json", ".lang", ".txt", ".ini", ".xml", ".yaml", ".yml", ".sii", ".tsv", ".vdf",
+    ".csv", ".properties", ".po", ".pot", ".strings", ".resx", ".xliff", ".xlf",
+    ".rpy", ".srt", ".ass", ".ssa",
 })
 
 SKIP_PATTERNS: frozenset[str] = frozenset({
@@ -68,6 +70,24 @@ def _detect_format(path: Path, data: bytes | None = None) -> Optional[str]:
         return "tsv"
     if ext == ".vdf":
         return "vdf"
+    if ext == ".csv":
+        return "csv"
+    if ext == ".properties":
+        return "properties"
+    if ext in (".po", ".pot"):
+        return "po"
+    if ext == ".strings":
+        return "strings"
+    if ext == ".resx":
+        return "resx"
+    if ext in (".xliff", ".xlf"):
+        return "xliff"
+    if ext == ".rpy":
+        return "rpy"
+    if ext == ".srt":
+        return "srt"
+    if ext in (".ass", ".ssa"):
+        return "ass"
     return None
 
 

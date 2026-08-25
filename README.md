@@ -10,8 +10,8 @@
 
 | 适用范围 | 说明 |
 |----------|------|
-| 支持的文本格式 | `.json` / `.lang` / `.txt` / `.ini` / `.xml` / `.yaml` / `.sii` / `.tsv` / `.vdf`（UTF-8 / UTF-16 自动 BOM 检测） |
-| 典型的适用对象 | Minecraft 模组、欧洲卡车模拟器 2、**Source 引擎游戏（Portal 2 / HL2 / L4D 的 VDF）**、Unity 明文本地化表、Steam 明文配置文件 |
+| 支持的文本格式 | `.json` / `.lang` / `.txt` / `.ini` / `.xml` / `.yaml` / `.sii` / `.tsv` / `.vdf`（UTF-8 / UTF-16 自动 BOM 检测）/ `.csv` / `.properties` / `.po` / `.strings` / `.resx` / `.xliff` / `.rpy` / `.srt` / `.ass` |
+| 典型的适用对象 | Minecraft 模组、欧洲卡车模拟器 2、**Source 引擎游戏（Portal 2 / HL2 / L4D 的 VDF）**、Ren'Py 视觉小说（galgame）、字幕（SRT/ASS）、gettext(.po)、Unity 明文本地化表、Steam 明文配置文件 |
 | 输入 | 游戏根目录或任意文本文件目录 |
 | 输出 | 独立汉化目录（copy 模式），不改动原游戏文件 |
 
@@ -185,7 +185,7 @@ translated_output/
 | 模块 | 功能 |
 |------|------|
 | `scanner.py` | 扫描游戏目录，识别可翻译文件，过滤二进制/大文件 |
-| `parser.py` | 多格式文本解析器（JSON / LANG / TXT / INI / XML / YAML / SII / TSV / VDF） |
+| `parser.py` | 多格式文本解析器（JSON / LANG / TXT / INI / XML / YAML / SII / TSV / VDF / CSV / properties / PO / strings / resx / xliff / rpy / srt / ass） |
 | `translator.py` | 任意 OpenAI 兼容供应商批量翻译（custom / agnes / 通义 / DeepSeek）+ SHA-256 缓存 |
 | `writer.py` | 回写翻译结果，保持原格式，支持 copy / inplace 两种模式 |
 | `reporter.py` | 生成清晰的汉化报告（成功 / 跳过 / 失败统计） |
@@ -209,7 +209,7 @@ python -m pytest tests/ -v
 pytest tests/ -v
 ```
 
-所有测试均在 Windows + Python 3.14 环境下通过（77 tests passed，含新增 VDF UTF-16 用例）。
+所有测试均在 Windows + Python 3.14 环境下通过（87 tests passed，含新增 8 类明文格式用例）。
 
 ### 真实汉化测试
 
@@ -218,6 +218,7 @@ pytest tests/ -v
 - ✅ **REPO**（怪兽跑图）：`Menu/HUD/Game.tsv` 共 **603** 条，全部真实翻译并回写为 TSV，成功 602 条
 - ✅ **Portal 2**：Source 引擎 VDF（UTF-16）端到端汉化，`basemodui_english.txt` 共 2231 条明文可翻译，回写保留 UTF-16 BOM
 - ✅ **Biped 2**：`localization_en.txt` 明文 `key=value` 928 条，可直接汉化
+- ✅ **新增明文格式**：`.csv` / `.properties` / `.po` / `.strings` / `.resx` / `.xliff` / `.rpy` / `.srt` / `.ass` 全部做了真实翻译与回写验证；其中 `.rpy`/`.srt`/`.ass` 采用**原位 token 回填**，不破坏脚本/字幕结构
 - 🔍 其余游戏（Isaac / Palworld / CSGO 等）：文本封装于私有资源包或仅引擎配置，详见测试报告
 
 ## 欢迎补充游戏库

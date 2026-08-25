@@ -192,15 +192,24 @@ class Translator:
             val = val.strip()
             if key and val:
                 result[key] = val
-        # 若模型返回格式不匹配，按顺序映射
-        if len(result) != len(items):
-            values = [v for _, v in items]
-            parsed = [r for r in result.values()]
-            for i, v in enumerate(values):
-                if v in parsed and i < len(parsed):
-                    k = items[i][0]
-                    if k not in result:
-                        result[k] = parsed[i]
+
+        # 按「输出顺序」补齐所有未被键匹配命中的条目。模型常无法原样回显
+        # 键（尤其嵌入 token 键如 rpy/srt/ass 的 \x02ETS1\x02），
+        # 但输出行的顺序与请求一致，用顺序位置对齐更稳健。
+        ordered = [
+            line.partition(":")[2].strip()
+            for line in text.splitlines()
+            if ":" in line and line.partition(":")[2].strip()
+        ]
+        slot = 0
+        for k, _ in items:
+            if k in result:
+                continue
+            while slot < len(ordered) and not ordered[slot]:
+                slot += 1
+            if slot < len(ordered):
+                result[k] = ordered[slot]
+                slot += 1
         return result
 
     def translate_batch(

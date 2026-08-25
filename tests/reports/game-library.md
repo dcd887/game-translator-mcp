@@ -12,9 +12,10 @@
 
 ## 已支持格式（解析器已内置）
 
-`.json` / `.lang` / `.txt` / `.ini` / `.xml` / `.yaml` / `.sii` / `.tsv` / `.vdf`（UTF-8 与 UTF-16，自动 BOM 检测）
+`.json` / `.lang` / `.txt` / `.ini` / `.xml` / `.yaml` / `.sii` / `.tsv` / `.vdf` / `.csv` / `.properties` / `.po` / `.strings` / `.resx` / `.xliff` / `.rpy` / `.srt` / `.ass`
 
-> VDF 说明：Source 引擎（Portal 2 / HL2 / L4D）本地化文件为 VDF，通常以 `.txt` 结尾且为 UTF-16 编码。扫描器会自动嗅探内容并识别为 `vdf`，回写时保留原始编码与 BOM。
+> `.vdf`（Source 引擎 Portal 2 / HL2 / L4D）：通常以 `.txt` 结尾且为 UTF-16 编码，会自动嗅探识别并保留原始编码/BOM。
+> `.rpy` / `.srt` / `.ass`：属于「脚本/字幕 + 文本」混合体，采用**原位 token 回填**，只替换文本、保留脚本结构与字幕时间轴。
 
 ## 扫描过但暂不支持（文案封装于二进制）
 

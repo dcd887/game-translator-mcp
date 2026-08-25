@@ -235,6 +235,71 @@ class TestParseVDF:
         assert "L4D360UI_ChangeClass##_DUP_1" in result
 
 
+class TestParseNewFormats:
+    """第一类新增的 8 种明文格式。"""
+
+    def test_csv(self):
+        data = b"key,value\nquit,Quit\nplay,Play\n"
+        result = TextParser.parse(data, "csv")
+        assert result["quit"] == "Quit"
+        assert result["play"] == "Play"
+
+    def test_properties(self):
+        data = b"# comment\ntitle=Lagrange\nquit:Exit\n"
+        result = TextParser.parse(data, "properties")
+        assert result == {"title": "Lagrange", "quit": "Exit"}
+
+    def test_po(self):
+        data = b'msgid "Hello"\nmsgstr "hi"\n\nmsgid "Bye"\nmsgstr ""\n'
+        result = TextParser.parse(data, "po")
+        assert result == {"Hello": "hi", "Bye": "Bye"}
+
+    def test_strings(self):
+        data = b'"MAIN.TITLE" = "Lagrange";\n"MAIN.PLAY" = "Play";\n'
+        result = TextParser.parse(data, "strings")
+        assert result == {"MAIN.TITLE": "Lagrange", "MAIN.PLAY": "Play"}
+
+    def test_resx(self):
+        data = b'<root><data name="Hello"><value>Hi</value></data></root>'
+        result = TextParser.parse(data, "resx")
+        assert result == {"Hello": "Hi"}
+
+    def test_xliff(self):
+        data = '<xliff><file><body><trans-unit id="1"><source>Hello</source><target/></trans-unit></body></file></xliff>'.encode()
+        result = TextParser.parse(data, "xliff")
+        assert result == {"Hello": ""}
+
+    def test_rpy_extracts_strings(self):
+        data = b'define e = Character("Eileen")\nlabel start:\n    e "Hello, world!"\n'
+        result = TextParser.parse(data, "rpy")
+        assert "Hello, world!" in result.values()
+
+    def test_srt(self):
+        data = b"1\n00:00:01,000 --> 00:00:03,000\nHello there\n\n2\n00:00:04,000 --> 00:00:06,000\nBye\n"
+        result = TextParser.parse(data, "srt")
+        assert "Hello there" in result.values()
+        assert "Bye" in result.values()
+
+    def test_ass(self):
+        data = b"[Events]\nFormat: Marked,Start,End,Style,Name,ML,MarginL,MarginR,Effect,Text\nDialogue: 0,0:00:01.00,0:00:03.00,Default,,0,0,0,,Hello again\n"
+        result = TextParser.parse(data, "ass")
+        assert "Hello again" in result.values()
+
+
+class TestNewFormatGuess:
+    def test_extensions(self):
+        g = TextParser.guess_format_from_path
+        assert g(Path("a.csv")) == "csv"
+        assert g(Path("a.properties")) == "properties"
+        assert g(Path("a.po")) == "po"
+        assert g(Path("a.strings")) == "strings"
+        assert g(Path("a.resx")) == "resx"
+        assert g(Path("a.xliff")) == "xliff"
+        assert g(Path("a.rpy")) == "rpy"
+        assert g(Path("a.srt")) == "srt"
+        assert g(Path("a.ass")) == "ass"
+
+
 class TestParseTSV:
     def test_basic(self):
         data = b"MAIN.PRIVATE_GAME\tPrivate Game\nMAIN.PUBLIC_GAME\tPublic Game\n"
