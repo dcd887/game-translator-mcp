@@ -61,6 +61,9 @@ class TestTranslConfig:
         assert cfg.qwen_model == "qwen-plus"
         assert cfg.batch_size == 15
         assert cfg.use_deepseek_fallback is True
+        assert cfg.agnes_api_key == ""
+        assert "apihub.agnes-ai.com" in cfg.agnes_base_url
+        assert cfg.agnes_model == "agnes-2.5-flash"
 
     def test_from_env(self, monkeypatch: pytest.FixtureRequest):
         monkeypatch.setenv("DASHSCOPE_API_KEY", "sk-test")
@@ -68,6 +71,15 @@ class TestTranslConfig:
         cfg = TranslConfig()
         assert cfg.dashscope_api_key == "sk-test"
         assert cfg.deepseek_api_key == "ds-test"
+
+    def test_agnes_from_env(self, monkeypatch: pytest.FixtureRequest):
+        monkeypatch.setenv("AGNES_API_KEY", "ag-test")
+        monkeypatch.setenv("AGNES_BASE_URL", "https://example.com/v1")
+        monkeypatch.setenv("AGNES_MODEL", "custom-model")
+        cfg = TranslConfig()
+        assert cfg.agnes_api_key == "ag-test"
+        assert cfg.agnes_base_url == "https://example.com/v1"
+        assert cfg.agnes_model == "custom-model"
 
     def test_batch_size_override(self, monkeypatch: pytest.FixtureRequest):
         monkeypatch.setenv("BATCH_SIZE", "30")

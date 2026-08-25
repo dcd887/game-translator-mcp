@@ -183,6 +183,23 @@ class TestParseSII:
         assert result == {"Good": "yes", "Another": "no"}
 
 
+class TestParseTSV:
+    def test_basic(self):
+        data = b"MAIN.PRIVATE_GAME\tPrivate Game\nMAIN.PUBLIC_GAME\tPublic Game\n"
+        result = TextParser.parse(data, "tsv")
+        assert result == {"MAIN.PRIVATE_GAME": "Private Game", "MAIN.PUBLIC_GAME": "Public Game"}
+
+    def test_value_with_tabs_and_spaces(self):
+        data = b"KEY\tHello World  \nKEY2\tValue2\n"
+        result = TextParser.parse(data, "tsv")
+        assert result == {"KEY": "Hello World", "KEY2": "Value2"}
+
+    def test_skips_comments(self):
+        data = b"# comment\nKEY\tValue\n# another\n"
+        result = TextParser.parse(data, "tsv")
+        assert result == {"KEY": "Value"}
+
+
 class TestGuessFormat:
     def test_known_extensions(self):
         assert TextParser.guess_format_from_path(Path("a.json")) == "json"
@@ -193,6 +210,7 @@ class TestGuessFormat:
         assert TextParser.guess_format_from_path(Path("a.yaml")) == "yaml"
         assert TextParser.guess_format_from_path(Path("a.yml")) == "yaml"
         assert TextParser.guess_format_from_path(Path("a.sii")) == "sii"
+        assert TextParser.guess_format_from_path(Path("a.tsv")) == "tsv"
 
     def test_unknown_extension_defaults_to_txt(self):
         assert TextParser.guess_format_from_path(Path("a.dat")) == "txt"

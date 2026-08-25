@@ -99,6 +99,9 @@ class GameWriter:
         if fmt == "sii":
             lines = [f'{k}="{v}"' for k, v in entries.items()]
             return ("\n".join(lines) + "\n").encode("utf-8")
+        if fmt == "tsv":
+            lines = [f"{k}\t{v}" for k, v in entries.items()]
+            return ("\n".join(lines) + "\n").encode("utf-8")
         raise ValueError(f"不支持的格式: {fmt!r}")
 
     @classmethod

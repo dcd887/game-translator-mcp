@@ -1,7 +1,10 @@
 # -*- coding: utf-8 -*-
-"""翻译模块：封装通义千问 / DeepSeek API 调用，支持批量翻译和本地缓存。
+"""翻译模块：封装 OpenAI 兼容 API（通义千问 / DeepSeek / 自定义供应商）调用。
 
-优先使用通义千问（阿里云百炼），备选 DeepSeek。
+支持任意 OpenAI 兼容 base_url，通过环境变量配置：
+  - AGNES_API_KEY / AGNES_BASE_URL / AGNES_MODEL   （custom 供应商）
+  - DASHSCOPE_API_KEY                               （通义千问，备选）
+  - DEEPSEEK_API_KEY                                （DeepSeek，备选）
 相同 (modid, key, value) 的条目通过 SHA-256 哈希缓存，避免重复消耗 token。
 """
 
@@ -19,11 +22,18 @@ from openai import OpenAI
 
 
 class TranslConfig(BaseSettings):
-    """翻译配置。"""
+    """翻译配置（支持通用 OpenAI 兼容供应商）。"""
+    # 通用自定义供应商
+    agnes_api_key: str = ""
+    agnes_base_url: str = "https://apihub.agnes-ai.com/v1"
+    agnes_model: str = "agnes-2.5-flash"
+    # 通义千问（备选）
     dashscope_api_key: str = ""
-    deepseek_api_key: str = ""
     qwen_model: str = "qwen-plus"
+    # DeepSeek（备选）
+    deepseek_api_key: str = ""
     deepseek_model: str = "deepseek-chat"
+
     batch_size: int = 15
     output_dir: str = "translated_output"
     use_deepseek_fallback: bool = True
@@ -85,9 +95,13 @@ class Translator:
     """调用 LLM API 进行批量翻译，带缓存。"""
 
     def __init__(self, config: TranslConfig, cache: TranslationCache) -> None:
-        if not config.dashscope_api_key and not config.deepseek_api_key:
+        if (
+            not config.dashscope_api_key
+            and not config.deepseek_api_key
+            and not config.agnes_api_key
+        ):
             raise ValueError(
-                "未配置 API Key。请设置 DASHSCOPE_API_KEY 或 DEEPSEEK_API_KEY。"
+                "未配置 API Key。请设置 AGNES_API_KEY / DASHSCOPE_API_KEY / DEEPSEEK_API_KEY。"
             )
         self.config = config
         self.cache = cache
@@ -96,7 +110,13 @@ class Translator:
         self._init_clients()
 
     def _init_clients(self) -> None:
-        if self.config.dashscope_api_key:
+        # 自定义供应商优先（agnes ai）
+        if self.config.agnes_api_key:
+            self._client = OpenAI(
+                api_key=self.config.agnes_api_key,
+                base_url=self.config.agnes_base_url,
+            )
+        elif self.config.dashscope_api_key:
             self._client = OpenAI(
                 api_key=self.config.dashscope_api_key,
                 base_url="https://dashscope.aliyuncs.com/compatible-mode/v1",
@@ -121,7 +141,11 @@ class Translator:
         user_msg = {"role": "user", "content": f"翻译以下 {len(items)} 条游戏文本：\n{prompt}"}
 
         client = self._client
-        model = self.config.qwen_model
+        model = (
+            self.config.agnes_model
+            if (client is not None and self.config.agnes_api_key)
+            else self.config.qwen_model
+        )
         if client is None and self._fallback_client is not None:
             client = self._fallback_client
             model = self.config.deepseek_model

@@ -4,16 +4,41 @@
 
 > 定位：一个可以被 AI Agent 调用的「汉化能力」，而非独立的汉化软件。可与 mc-translator-mcp、mc-pack-builder-mcp 等工具协同工作。
 
-## 支持的游戏与格式
+## 适用范围
 
-| 状态 | 游戏 | 格式 | 说明 |
-|------|------|------|------|
-| ✅ 完整支持 | Minecraft (Java) | `.json` / `.lang` | 已验证 |
-| ✅ 完整支持 | 欧洲卡车模拟器 2 | `.sii` | 格式清晰，结构稳定 |
-| ✅ 完整支持 | 通用游戏 | `.json` / `.txt` / `.ini` / `.xml` / `.yaml` | 多格式解析器 |
-| 🔄 计划支持 | Unity 游戏 | `.asset` 文本块 | 需 UnityPy 或反序列化 |
-| 🔄 计划支持 | 幻兽帕鲁 | `.locres` | 需 UnrealPak 解包 |
-| ❌ 暂不支持 | 战雷 / 绝地求生 | 加密或服务器下发 | 需要额外解包工具 |
+本工具面向**文本以明文文件存储**的游戏/模组进行汉化，属于"文本汉化"而非"资源包注入"。
+
+| 适用范围 | 说明 |
+|----------|------|
+| 支持的文本格式 | `.json` / `.lang` / `.txt` / `.ini` / `.xml` / `.yaml` / `.sii` / `.tsv` |
+| 典型的适用对象 | Minecraft 模组、欧洲卡车模拟器 2、Unity 明文本地化表、Steam 明文配置文件 |
+| 输入 | 游戏根目录或任意文本文件目录 |
+| 输出 | 独立汉化目录（copy 模式），不改动原游戏文件 |
+
+**不适用范围 / 已知限制**：
+
+- Unity 打包的 `.pak` / `.vpk` / `catalog.json` 二进制资源，需先解包才能处理
+- 幻兽帕鲁等使用 `.locres` 的 Unreal 游戏，需 UnrealPak 解包
+- 战雷 / 绝地求生等服务端下发或加密的文本，不提供破解支持
+- 超过 10MB 的文本文件（防误扫二进制），扫描时自动跳过
+
+> 提示：Unity 游戏虽有大量 `.json`/`.xml`，但多数是引擎配置而非游戏文案；扫描器会如实返回，是否值得翻译由使用者判断。
+
+## 使用条件
+
+| 条件 | 说明 |
+|------|------|
+| Python | ≥ 3.10 |
+| 依赖 | 见 `pyproject.toml`（mcp、openai、pydantic 等） |
+| 联网 | 必须能联网调用 AI 翻译 API |
+| API Key | 必须配置一个可用的 OpenAI 兼容翻译供应商（见下方「配置」），这是翻译能力的必要前提 |
+| 授权 | 汉化后的文本仅限个人学习 / 非商业用途；商用需确认游戏与模组的二次分发条款 |
+
+**可选的 AI 供应商**（配置任一即启用）：
+
+- **agnes ai**（首选，通用 OpenAI 兼容）：`AGNES_API_KEY` + `AGNES_BASE_URL` + `AGNES_MODEL`
+- **通义千问**（备选）：`DASHSCOPE_API_KEY`
+- **DeepSeek**（备选 fallback）：`DEEPSEEK_API_KEY`
 
 ## 安装
 
@@ -30,18 +55,28 @@ pip install -e ".[dev]"
 cp .env.example .env
 ```
 
-必填项：
+必填项（三选一即可）：
 
 ```bash
-DASHSCOPE_API_KEY=sk-your-qwen-key-here
-# DEEPSEEK_API_KEY=          # 可选，通义千问失败时自动 fallback
+# 首选：agnes ai（通用 OpenAI 兼容供应商）
+AGNES_API_KEY=sk-xxx
+AGNES_BASE_URL=https://apihub.agnes-ai.com/v1
+AGNES_MODEL=agnes-2.5-flash
+
+# 或备选：通义千问
+# DASHSCOPE_API_KEY=sk-your-qwen-key-here
+# DEEPSEEK_API_KEY=          # 可选，主供应商失败时自动 fallback
+
 BATCH_SIZE=15                # 每批翻译条数，越高越省 token
 OUTPUT_DIR=translated_output # 汉化输出目录
 ```
 
 API Key 申请：
-- 通义千问（推荐）：[阿里云百炼控制台](https://bailian.console.aliyun.com/)
-- DeepSeek（备选）：[DeepSeek 开放平台](https://platform.deepseek.com/)
+- agnes ai：向 [apihub.agnes-ai.com](https://apihub.agnes-ai.com) 申请
+- 通义千问：[阿里云百炼控制台](https://bailian.console.aliyun.com/)
+- DeepSeek：[DeepSeek 开放平台](https://platform.deepseek.com/)
+
+> 配置优先级：先读环境变量，其次读项目根目录 `.env` 文件，最后为内置默认值。
 
 ## 启动方式
 
@@ -143,8 +178,8 @@ translated_output/
 | 模块 | 功能 |
 |------|------|
 | `scanner.py` | 扫描游戏目录，识别可翻译文件，过滤二进制/大文件 |
-| `parser.py` | 多格式文本解析器（JSON / LANG / TXT / INI / XML / YAML / SII） |
-| `translator.py` | 通义千问批量翻译 + SHA-256 缓存，避免重复消耗 token |
+| `parser.py` | 多格式文本解析器（JSON / LANG / TXT / INI / XML / YAML / SII / TSV） |
+| `translator.py` | OpenAI 兼容供应商批量翻译（agnes / 通义 / DeepSeek）+ SHA-256 缓存 |
 | `writer.py` | 回写翻译结果，保持原格式，支持 copy / inplace 两种模式 |
 | `reporter.py` | 生成清晰的汉化报告（成功 / 跳过 / 失败统计） |
 | `steam.py` | Steam 游戏发现，解析 VDF 索引文件 |
@@ -167,7 +202,7 @@ python -m pytest tests/ -v
 pytest tests/ -v
 ```
 
-所有测试均在 Windows + Python 3.14 环境下通过（66 tests passed）。
+所有测试均在 Windows + Python 3.14 环境下通过（71 tests passed）。
 
 ## 与现有工具链的关系
 

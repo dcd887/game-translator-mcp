@@ -59,6 +59,8 @@ def _detect_format(path: Path) -> Optional[str]:
         return "yaml"
     if ext == ".sii":
         return "sii"
+    if ext == ".tsv":
+        return "tsv"
     return None
 
 

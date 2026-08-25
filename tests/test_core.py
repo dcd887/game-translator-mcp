@@ -25,6 +25,7 @@ class TestDetectFormat:
         assert _detect_format(Path("a.yaml")) == "yaml"
         assert _detect_format(Path("a.yml")) == "yaml"
         assert _detect_format(Path("a.sii")) == "sii"
+        assert _detect_format(Path("a.tsv")) == "tsv"
 
     def test_unknown_extension(self):
         assert _detect_format(Path("a.exe")) is None
@@ -98,6 +99,7 @@ class TestWriterSerialize:
         ("ini", "key"),
         ("xml", "string"),
         ("sii", "key"),
+        ("tsv", "key"),
     ])
     def test_roundtrip_json(self, fmt, expected_key):
         entries = {"key": "value", "hello": "world"}

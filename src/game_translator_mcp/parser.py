@@ -188,6 +188,31 @@ def _parse_sii(data: bytes) -> dict[str, str]:
     return result
 
 
+def _parse_tsv(data: bytes) -> dict[str, str]:
+    """TSV 制表符分隔的 key\\t值 格式（常见于 Unity 本地化表）。"""
+    text = data.decode("utf-8", errors="replace")
+    result: dict[str, str] = {}
+    for line in text.splitlines():
+        stripped = line.strip()
+        if not stripped or stripped.startswith("#"):
+            continue
+        if "\t" in stripped:
+            key, _, value = stripped.partition("\t")
+            key = key.strip()
+            if key:
+                result[key] = value.strip()
+        else:
+            # 无制表符的行按原文保留（可能是空值条目或表头）
+            if stripped:
+                key_re = re.compile(r"^[A-Za-z0-9_\-\.]+$")
+                if "=" in stripped:
+                    key, _, value = stripped.partition("=")
+                    key = key.strip()
+                    if key_re.match(key):
+                        result[key] = value.strip()
+    return result
+
+
 # ── 主解析器类 ─────────────────────────────────────────────────────────────
 
 _PARSERS: dict[str, callable] = {
@@ -198,6 +223,7 @@ _PARSERS: dict[str, callable] = {
     "xml": _parse_xml,
     "yaml": _parse_yaml,
     "sii": _parse_sii,
+    "tsv": _parse_tsv,
 }
 
 
@@ -218,6 +244,8 @@ class TextParser:
             return "sii"
         if ext == ".lang":
             return "lang"
+        if ext == ".tsv":
+            return "tsv"
         if ext in (".json", ".txt", ".ini", ".xml", ".yaml", ".yml"):
             return "yaml" if ext == ".yml" else ext.lstrip(".")
         return "txt"
