@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import asyncio
 import tempfile
 from pathlib import Path
 
@@ -11,6 +12,7 @@ import pytest
 from game_translator_mcp.scanner import TranslatableFile, scan_directory, _detect_format, SKIP_PATTERNS
 from game_translator_mcp.writer import GameWriter, WriteError
 from game_translator_mcp.reporter import FileResult, ReportGenerator
+from game_translator_mcp.mcp_server import preview_translate_game
 
 
 # ── scanner ──────────────────────────────────────────────────────────────────
@@ -217,3 +219,29 @@ class TestReportGenerator:
         report = ReportGenerator().generate([], "Empty")
         assert "Empty" in report
         assert "总文件数：0" in report
+
+
+# ── preview（--dry-run，零成本预览）────────────────────────────────────────────
+
+class TestPreviewTranslate:
+    def test_preview_reports_files_and_entries(self, tmp_path: Path):
+        (tmp_path / "lang").mkdir()
+        (tmp_path / "lang" / "en_us.json").write_bytes(
+            json.dumps({"item.stick": "Stick", "item.iron": "Iron Ingot"}).encode()
+        )
+        (tmp_path / "lang" / "menu.lang").write_text("title=Test\ngui.ok=OK\n")
+
+        result = json.loads(asyncio.run(preview_translate_game(str(tmp_path))))
+        assert result["total_files"] == 2
+        assert result["total_entries"] == 4
+        assert result["formats"]["json"] == 1
+        assert result["formats"]["lang"] == 1
+        assert result["total_source_chars"] > 0
+        assert result["estimated_tokens_rough"] >= 1
+        # 预览绝不写文件、不产出 output 目录，也没有 token 消费字段
+        assert "output_dir" not in result
+        assert "preview" not in result or not result["preview"]
+
+    def test_preview_nonexistent_dir(self, tmp_path: Path):
+        result = json.loads(asyncio.run(preview_translate_game(str(tmp_path / "nope"))))
+        assert "error" in result

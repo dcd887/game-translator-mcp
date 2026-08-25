@@ -191,6 +191,60 @@ async def translate_game(
 
 
 # ============================================================
+# 工具 3：preview_translate_game（零成本预览，不调 AI API）
+# ============================================================
+@mcp.tool()
+async def preview_translate_game(directory: str) -> str:
+    """（零成本）预览汉化范围：列出将被处理的文件、每种格式数量、总条目数与预估翻译量。
+
+    只做扫描与解析，**不调用任何 AI 翻译 API、不消耗 token、不写文件**，
+    用于在真正执行汉化前评估工作量与费用。
+
+    Args:
+        directory: 游戏目录或语言文件目录
+    Returns:
+        JSON：文件清单 + 格式分布 + 总条目数 + 预估字符量/估算 token
+    """
+    base = Path(directory).resolve()
+    if not base.exists():
+        return json.dumps({"error": f"目录不存在: {base}"}, ensure_ascii=False, indent=2)
+
+    files = scan_directory(base)
+    fmt_counts: dict[str, int] = {}
+    total_entries = 0
+    total_chars = 0
+    file_list = []
+    for f in files:
+        fmt_counts[f.format] = fmt_counts.get(f.format, 0) + 1
+        try:
+            entries = TextParser.parse(f.raw_data, f.format)
+            n = len(entries)
+            total_chars += sum(len(v) for v in entries.values())
+        except Exception:
+            n = 0
+        total_entries += n
+        file_list.append({
+            "path": str(f.path),
+            "format": f.format,
+            "entries_estimated": n,
+        })
+
+    # 粗略估算：英文约 4 字符/token，中文约 1 字符/token；给出量级参考
+    est_tokens = max(1, round(total_chars / 4))
+    summary = {
+        "directory": str(base),
+        "total_files": len(files),
+        "total_entries": total_entries,
+        "total_source_chars": total_chars,
+        "estimated_tokens_rough": est_tokens,
+        "formats": fmt_counts,
+        "files": file_list,
+        "note": "这是未调用 AI 的预览估算；实际 token 消耗以执行时供应商计费为准。",
+    }
+    return json.dumps(summary, ensure_ascii=False, indent=2)
+
+
+# ============================================================
 # 工具 3：dry_run_translate
 # ============================================================
 @mcp.tool()

@@ -15,6 +15,9 @@
 | 输入 | 游戏根目录或任意文本文件目录 |
 | 输出 | 独立汉化目录（copy 模式），不改动原游戏文件 |
 
+> 📚 **想知道你的游戏在被支持范围内吗？** 先看这里 → **[SUPPORTED_GAMES.md](SUPPORTED_GAMES.md)**（含已实测游戏、引擎→格式速查表、不支持清单）。
+> 快速判断口诀：**文案只要是明文文件就能汉化**；不确定就 `python -m game_translator_mcp preview <目录>` 零成本看一眼。
+
 **不适用范围 / 已知限制**：
 
 - Unity 打包的 `.pak` / `.vpk` / `catalog.json` 二进制资源，需先解包才能处理
@@ -125,26 +128,32 @@ LangChain Agent 集成（`PYTHONPATH` 指向 `src/`）：
 ### CLI 模式
 
 ```bash
+# 零成本预览：先看会扫到哪些文件、多少条文本、预估多少 token（不调用 AI、不写文件）
+python -m game_translator_mcp preview <游戏目录路径>
+
 # 扫描游戏目录，列出可翻译文件
 python -m game_translator_mcp check <游戏目录路径>
 
 # 执行完整汉化
 python -m game_translator_mcp translate <游戏目录路径> --modid mygame
 
-# 预览翻译效果（不写入文件）
-python -m game_translator_mcp translate <游戏目录路径> --modid mygame --dry-run
+# 预览翻译效果（抽样翻译，不写入文件）
+python -m game_translator_mcp dry-run <游戏目录路径>
 
 # 列出 Steam 库中的可翻译游戏
 python -m game_translator_mcp steam
 ```
 
+> 💡 **先 preview 再 translate**：翻译会消耗 token，默认输出到独立目录 `translated_output/` 不会覆盖原文件。正式执行前先跑 `preview` 估一下工作量，避免白花 token。
+
 ## MCP 工具
 
 | 工具名 | 功能 |
 |--------|------|
+| `preview_translate_game` | **零成本预览**（--dry-run）：先扫出会处理哪些文件、每种格式数量、总条目数、预估 token，不调 AI、不消耗额度、不写文件 |
 | `scan_game_directory` | 扫描目录，返回可翻译文件列表 + 文本量估算 |
 | `translate_game` | 完整汉化流程：扫描 → AI 翻译 → 回写 → 生成报告 |
-| `dry_run_translate` | 预览翻译效果，不实际修改文件 |
+| `dry_run_translate` | 抽样预览翻译效果（会调用 AI 翻译一小部分样例），不实际写入文件 |
 | `list_steam_games` | 发现本地 Steam 库中已安装的可翻译游戏 |
 
 ## 使用示例
@@ -166,6 +175,34 @@ python -m game_translator_mcp translate "path/to/my-mod" --modid mymod
 # 输出目录默认为 translated_output/
 # 汉化报告自动生成到 translated_output/report.txt
 ```
+
+## 新手怎么用（一句话版）
+
+1. **先预览，不花钱**：`python -m game_translator_mcp preview "游戏目录"` → 看会翻译多少条。
+2. **觉得量合适就翻译**：`python -m game_translator_mcp translate "游戏目录" --modid mygame` → 结果输出到 `translated_output/`，**原文件一个都不动**。
+3. **翻好了？照着下面「导入汉化」复制回游戏里**，中文就生效了。
+
+### 怎么把汉化「装」进游戏（导入 / 覆盖原文件教学）
+
+本工具默认是**copy 模式**：只把翻译结果写到 `translated_output/` 目录，绝不侵入你的原游戏文件。这样安全，但中文不会立即生效——你需要自己把汉化文件**放进游戏认得到的位置**。不同游戏的「位置」不一样，通常是这三种情况：
+
+| 游戏类型 | 汉化文件该放哪 | 说明 |
+|----------|---------------|------|
+| **我的世界模组/资源包** | 装成一个**资源包**（把 `translated_output` 里的 `.json` 按 `assets/<modid>/lang/` 结构打包，或用 mc-pack-builder-mcp 生成），在游戏里启用该资源包 | 模组文案以官方资源包方式覆盖 |
+| **Steam / 大多单机游戏** | 找到游戏目录里的**原语言文件**（英文的 `en_us.json` / `Localization` 文件夹），把汉化文件**改名成游戏读取的那个语言名**（比如 `zh_cn.json`），**覆盖**进去 | 改完重进游戏/重启生效 |
+| **只有特定语言名的** | 作为**可选语言**丢进游戏的本地化目录 | 在游戏设置里切换语言到中文 |
+
+⚠️ **覆盖前请一定留备份**——这是能安全撤回去的唯一办法：
+
+```bash
+# 以某游戏的 Localization/english.json 为例：先把原文件备份，再覆盖
+cp "游戏目录/Localization/english.json" "游戏目录/Localization/english.json.bak"
+cp "translated_output/你汉化后的文件.json" "游戏目录/Localization/english.json"
+```
+
+> 如果你不确定该放哪，**直接把游戏目录 + 汉化输出目录一起发给 AI**，让它帮你判断文件对应关系、给出准确的复制命令 —— 因为本工具就是给 AI Agent 调用的。
+
+> 需要我把这份「导入/覆盖」说明做成逐步演示（配上具体游戏的实际路径）吗？告诉我你的游戏和目录，我就演示给你看。
 
 ## 输出结构
 
@@ -190,16 +227,17 @@ translated_output/
 | `writer.py` | 回写翻译结果，保持原格式，支持 copy / inplace 两种模式 |
 | `reporter.py` | 生成清晰的汉化报告（成功 / 跳过 / 失败统计） |
 | `steam.py` | Steam 游戏发现，解析 VDF 索引文件 |
-| `mcp_server.py` | MCP 服务器入口，暴露 4 个工具供 AI Agent 调用 |
-| `cli.py` | 命令行接口，支持 check / translate / steam 子命令 |
+| `mcp_server.py` | MCP 服务器入口，暴露 5 个工具供 AI Agent 调用 |
+| `cli.py` | 命令行接口，支持 check / preview / dry-run / translate / steam 子命令 |
 
 ## 设计要点
 
 1. **智能缓存**：对 `{modid}::key::value` 做 SHA-256 哈希，相同原文只翻译一次，结果持久化到 `translator_cache.json`
-2. **已有汉化跳过**：若输出目录中已存在相同格式的翻译文件，自动跳过，避免覆盖社区翻译
-3. **批量翻译**：每条请求携带最多 `BATCH_SIZE` 个条目，一次 API 调用返回全部结果，大幅降低 token 和延迟
-4. **供应商自适应**：检测用户配置了哪个 key 就用哪个（custom > agnes > dashscope），可选 DeepSeek 做 fallback，不绑定任何一家
-5. **零侵入输出**：默认 copy 模式生成独立输出目录，不修改原游戏文件
+2. **零成本预览**：`preview_translate_game` 先扫文件、估条目数和 token，不调 AI、不写文件，帮你决定要不要花钱翻译
+3. **已有汉化跳过**：若输出目录中已存在相同格式的翻译文件，自动跳过，避免覆盖社区翻译
+4. **批量翻译**：每条请求携带最多 `BATCH_SIZE` 个条目，一次 API 调用返回全部结果，大幅降低 token 和延迟
+5. **供应商自适应**：检测用户配置了哪个 key 就用哪个（custom > agnes > dashscope），可选 DeepSeek 做 fallback，不绑定任何一家
+6. **零侵入输出**：默认 copy 模式生成独立输出目录，不修改原游戏文件
 
 ## 测试
 
@@ -209,7 +247,7 @@ python -m pytest tests/ -v
 pytest tests/ -v
 ```
 
-所有测试均在 Windows + Python 3.14 环境下通过（87 tests passed，含新增 8 类明文格式用例）。
+所有测试均在 Windows + Python 3.14 环境下通过（89 tests passed，含新增 8 类明文格式用例与零成本预览 preview 用例）。
 
 ### 真实汉化测试
 
@@ -223,7 +261,11 @@ pytest tests/ -v
 
 ## 欢迎补充游戏库
 
-本工具支持任意**明文文本格式**的游戏/模组。如果你的游戏文案以明文文件（`.json` / `.tsv` / `.lang` / `.sii` / `.vdf` 等）存储，欢迎通过 Issue / PR 补充游戏库，一起扩展现有解析器。详细指引见 [`tests/reports/`](tests/reports/README.md)。
+本工具支持任意**明文文本格式**的游戏/模组。如果你的游戏文案以明文文件（`.json` / `.tsv` / `.lang` / `.sii` / `.vdf` 等）存储，欢迎通过 Issue / PR 补充游戏库，一起扩展现有解析器。
+
+- 已完成的支持范围见 **[SUPPORTED_GAMES.md](SUPPORTED_GAMES.md)**
+- 详细测试与新增游戏接入指引见 [`tests/reports/`](tests/reports/README.md)
+- 新格式接入步骤见下方「贡献指南」
 
 ## 与现有工具链的关系
 

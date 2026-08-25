@@ -3,6 +3,8 @@
 
 用法：
   python -m game_translator_mcp check <directory>
+  python -m game_translator_mcp preview <directory>
+  python -m game_translator_mcp dry-run <directory> [--limit N]
   python -m game_translator_mcp translate <directory> [--modid name] [--batch-size N]
   python -m game_translator_mcp steam
   python -m game_translator_mcp              # 启动 MCP server（默认）
@@ -14,7 +16,7 @@ import json
 import sys
 from pathlib import Path
 
-from .mcp_server import mcp, scan_game_directory, translate_game
+from .mcp_server import mcp, scan_game_directory, translate_game, preview_translate_game, dry_run_translate
 from .steam import discover_steam_games
 
 
@@ -30,6 +32,12 @@ def cli_main() -> None:
             print("用法: python -m game_translator_mcp check <directory>")
             return
         result = asyncio.run(scan_game_directory(args[1]))
+        print(result)
+    elif cmd == "preview":
+        if len(args) < 2:
+            print("用法: python -m game_translator_mcp preview <directory>")
+            return
+        result = asyncio.run(preview_translate_game(args[1]))
         print(result)
     elif cmd == "translate":
         if len(args) < 2:
@@ -48,6 +56,20 @@ def cli_main() -> None:
             else:
                 i += 1
         result = asyncio.run(translate_game(args[1], modid=modid, batch_size=batch_size))
+        print(result)
+    elif cmd == "dry-run" or cmd == "dry_run":
+        if len(args) < 2:
+            print("用法: python -m game_translator_mcp dry-run <directory> [--limit N]")
+            return
+        limit = 50
+        i = 1
+        while i < len(args):
+            if args[i] == "--limit" and i + 1 < len(args):
+                limit = int(args[i + 1])
+                i += 2
+            else:
+                i += 1
+        result = asyncio.run(dry_run_translate(args[1], limit=limit))
         print(result)
     elif cmd == "steam":
         games = discover_steam_games()
