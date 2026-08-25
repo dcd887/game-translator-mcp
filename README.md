@@ -209,7 +209,18 @@ python -m pytest tests/ -v
 pytest tests/ -v
 ```
 
-所有测试均在 Windows + Python 3.14 环境下通过（71 tests passed）。
+所有测试均在 Windows + Python 3.14 环境下通过（72 tests passed）。
+
+### 真实汉化测试
+
+结合真实游戏文件做了端到端汉化验证（使用 agnes ai），结果已归档到 [`tests/reports/`](tests/reports/README.md)：
+
+- ✅ **REPO**（怪兽跑图）：`Menu/HUD/Game.tsv` 共 **603** 条，全部真实翻译并回写为 TSV，成功 602 条
+- 🔍 其它 Steam 游戏（Portal 2 / Isaac / Biped 2 等）：扫描结论是文本多封装于私有资源包，详见测试报告
+
+## 欢迎补充游戏库
+
+本工具支持任意**明文文本格式**的游戏/模组。如果你的游戏文案以明文文件（`.json` / `.tsv` / `.lang` / `.sii` 等）存储，欢迎通过 Issue / PR 补充游戏库，一起扩展现有解析器。详细指引见 [`tests/reports/`](tests/reports/README.md)。
 
 ## 与现有工具链的关系
 
