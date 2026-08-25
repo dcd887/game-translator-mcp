@@ -4,14 +4,58 @@
 from __future__ import annotations
 
 import json
+import re
 from pathlib import Path
 from typing import Optional
 
-from .parser import TextParser
+from .parser import TextParser, decode_text
 
 
 class WriteError(Exception):
     pass
+
+
+_VDF_ENCODINGS: tuple[tuple[bytes, str, bytes, str], ...] = (
+    (b"\xff\xfe", "utf-16-le", b"\xff\xfe", "utf-16-le"),
+    (b"\xfe\xff", "utf-16-be", b"\xfe\xff", "utf-16-be"),
+    (b"\xef\xbb\xbf", "utf-8-sig", b"", "utf-8"),
+)
+
+
+def _detect_encoding(raw: bytes) -> tuple[str, bytes]:
+    """检测原始编码：返回 (解码用编码名, 回写时需保留的 BOM 前缀)。"""
+    for bom, dec, wbom, enc in _VDF_ENCODINGS:
+        if raw.startswith(bom):
+            return dec, wbom
+    return "utf-8", b""
+
+
+def _vdf_escape(s: str) -> str:
+    return s.replace("\\", "\\\\").replace('"', '\\"')
+
+
+def _serialize_vdf(entries: dict[str, str], raw: bytes) -> bytes:
+    """生成 Valve 语言 VDF 并保留原始编码 / BOM（Source 引擎，如 Portal 2）。
+
+    原文 "lang" { "Language" ... "Tokens" { ... } } 会被规范化重写为等价的
+    平铺结构（保留所有 key-value 与原始语言名），丢弃原空白/注释布局。
+    """
+    # 从原始数据提取语言名（Language），保证回写后仍能按原语言加载
+    lang = "English"
+    try:
+        m = re.search(r'^\s*"Language"\s+"([^"]+)"', decode_text(raw), re.MULTILINE)
+        if m:
+            lang = m.group(1).replace('\\"', '"')
+    except Exception:
+        pass
+    dec, wbom = _detect_encoding(raw)
+    lines = ['"lang"', "{", '\t"Language"\t"%s"' % _vdf_escape(lang), '\t"Tokens"', "\t{"]
+    for k, v in entries.items():
+        lines.append('\t\t"%s"\t"%s"' % (_vdf_escape(k), _vdf_escape(v)))
+    lines += ["\t}", "}", ""]
+    text = "\r\n".join(lines) if dec.startswith("utf-16") else "\n".join(lines)
+    body = text.encode(dec, errors="replace")
+    return wbom + body
 
 
 class GameWriter:
@@ -65,12 +109,14 @@ class GameWriter:
             out_path = Path(str(self.output_root) + ("/" + rel_str if rel_str else "" + file_info.path.name))
             out_path.parent.mkdir(parents=True, exist_ok=True)
 
-        data = self._serialize(entries, fmt)
+        data = self._serialize(entries, fmt, file_info.raw_data if fmt == "vdf" else None)
         out_path.write_bytes(data)
         return str(out_path)
 
     @classmethod
-    def _serialize(cls, entries: dict[str, str], fmt: str) -> bytes:
+    def _serialize(cls, entries: dict[str, str], fmt: str, raw: Optional[bytes] = None) -> bytes:
+        if fmt == "vdf":
+            return _serialize_vdf(entries, raw or b"")
         if fmt == "json":
             return json.dumps(entries, ensure_ascii=False, indent=2).encode("utf-8")
         if fmt == "lang":

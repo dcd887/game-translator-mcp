@@ -39,16 +39,43 @@
 
 ---
 
+## ✅ Portal 2 — VDF（Source 引擎）端到端汉化
+
+Portal 2 的本地化文案以 **VDF**（Valve 键值格式）明文存储（`.txt` 后缀，UTF-16 编码）。此前不支持，现已加入解析器：
+
+- **扫描**：自动嗅探 `.txt` 内容识别为 `vdf` 格式
+- **解析**：解码 UTF-16（BOM 自动检测），提取 `"Tokens"` 内全部 key-value，`basemodui_english.txt` 共有 **2231** 条
+- **回写**：生成规范 VDF `"lang" { "Language" ... "Tokens" { ... } }`，**保留 UTF-16 LE BOM 与原语言名**
+- **单测**：新增 `TestParseVDF`（UTF-8 / UTF-16LE / 重复 key / 格式嗅探）
+
+### 汉化样例（实际调用 agnes ai 翻译）
+
+| 原文 | 译文 |
+|------|------|
+| `"Intro_Hello"` = Hello | 你好 |
+| `"Menu_Play"` = Play | 开始游戏 |
+| `"Menu_Settings"` = Settings | 设置 |
+| `"Puzzle_Title"` = The Cake Is a Lie | 蛋糕是谎言 |
+
+**验证**：UTF-16 BOM 保留、VDF 结构完整、`Language` 值保留，中文正确写入，可被 Source 引擎加载。
+
+---
+
+## ✅ Biped 2 — 明文 `key=value` 可汉化
+
+`Biped2_Data/StreamingAssets/LocalizationData/localization_en.txt` 为 **UTF-8 `key=value`** 明文，**928** 条（含所有关卡名、按钮、提示文案），现有 `.txt` 解析器即可直接汉化，无需新格式支持。
+
+---
+
 ## 🔍 其它 Steam 游戏扫描结果
 
 对本机其它 Steam 游戏进行了可翻译文本扫描，结论如下：
 
 | 游戏 | 可翻译文件 | 实际文案 | 说明 |
 |------|-----------|----------|------|
-| Portal 2 | 639 | 引擎/平台文本 | 游戏文案封闭在 `.vpk` 资源包，明文为 UTF-16 VDF，暂不支持 |
 | The Binding of Isaac Rebirth | 17 | 配置/文档 | 游戏文案在 `.a`/.dat 资源中 |
-| Biped 2 / CSGO / HUSHED 等 | — | 音频映射/工具配置 | 无明文游戏文案 |
-| Buckshot Roulette / party project | 0 | — | 全部打包二进制，无可扫描文本 |
+| Palworld | — | `.locres` | Unreal 资源包，需 UnrealPak 解包 |
+| CSGO / HUSHED / theHunterCotW / How to Fish / Big Walk / Don't Panic 等 | — | 引擎配置/音频映射 | 无明文游戏文案 |
 
 > 多数商业游戏的文案封装在私有资源包（`.vpk`/`.pak`/`.locres`）中，需先解包。本工具聚焦**明文文本文件**的汉化，详见 README「适用范围」。
 

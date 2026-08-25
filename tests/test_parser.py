@@ -183,6 +183,58 @@ class TestParseSII:
         assert result == {"Good": "yes", "Another": "no"}
 
 
+class TestParseVDF:
+    VDF = (
+        '"lang"\r\n'
+        '{\r\n'
+        '"Language"\t"English"\r\n'
+        '"Tokens"\r\n'
+        '{\r\n'
+        '"L4D360UI_AudioVideo"\t\t"AUDIO/VIDEO"\r\n'
+        '"L4D360UI_ChangeClass"\t\t"Change Class"\r\n'
+        '"L4D360UI_ChangeTeam"\t\t"Change Team"\r\n'
+        '"L4D360UI_InYourParty"\t\t"In Your Party"\r\n'
+        '}\r\n'
+        '}\r\n'
+    )
+
+    EXPECTED = {
+        "L4D360UI_AudioVideo": "AUDIO/VIDEO",
+        "L4D360UI_ChangeClass": "Change Class",
+        "L4D360UI_ChangeTeam": "Change Team",
+        "L4D360UI_InYourParty": "In Your Party",
+    }
+
+    def test_utf8(self):
+        result = TextParser.parse(self.VDF.encode("utf-8"), "vdf")
+        assert result == self.EXPECTED
+
+    def test_utf16le_bom(self):
+        data = "\ufeff" + self.VDF
+        result = TextParser.parse(data.encode("utf-16-le"), "vdf")
+        assert result == self.EXPECTED
+
+    def test_looks_like_vdf_utf16(self):
+        data = "\ufeff" + self.VDF
+        assert TextParser.looks_like_vdf(data.encode("utf-16-le")) is True
+        assert TextParser.looks_like_vdf(b"a=b\nc=d\n") is False
+
+    def test_guess_format_detects_vdf_in_txt(self):
+        assert TextParser.guess_format_from_path(
+            Path("basemodui_english.txt"), self.VDF.encode("utf-8")
+        ) == "vdf"
+
+    def test_duplicate_keys_kept_ordered(self):
+        dupe = self.VDF.replace(
+            '"L4D360UI_ChangeClass"\t\t"Change Class"',
+            '"L4D360UI_ChangeClass"\t\t"Change Class"\r\n'
+            '"L4D360UI_ChangeClass"\t\t"Change Class2"',
+        )
+        result = TextParser.parse(dupe.encode("utf-8"), "vdf")
+        assert "L4D360UI_ChangeClass" in result
+        assert "L4D360UI_ChangeClass##_DUP_1" in result
+
+
 class TestParseTSV:
     def test_basic(self):
         data = b"MAIN.PRIVATE_GAME\tPrivate Game\nMAIN.PUBLIC_GAME\tPublic Game\n"

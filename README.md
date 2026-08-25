@@ -10,8 +10,8 @@
 
 | 适用范围 | 说明 |
 |----------|------|
-| 支持的文本格式 | `.json` / `.lang` / `.txt` / `.ini` / `.xml` / `.yaml` / `.sii` / `.tsv` |
-| 典型的适用对象 | Minecraft 模组、欧洲卡车模拟器 2、Unity 明文本地化表、Steam 明文配置文件 |
+| 支持的文本格式 | `.json` / `.lang` / `.txt` / `.ini` / `.xml` / `.yaml` / `.sii` / `.tsv` / `.vdf`（UTF-8 / UTF-16 自动 BOM 检测） |
+| 典型的适用对象 | Minecraft 模组、欧洲卡车模拟器 2、**Source 引擎游戏（Portal 2 / HL2 / L4D 的 VDF）**、Unity 明文本地化表、Steam 明文配置文件 |
 | 输入 | 游戏根目录或任意文本文件目录 |
 | 输出 | 独立汉化目录（copy 模式），不改动原游戏文件 |
 
@@ -185,7 +185,7 @@ translated_output/
 | 模块 | 功能 |
 |------|------|
 | `scanner.py` | 扫描游戏目录，识别可翻译文件，过滤二进制/大文件 |
-| `parser.py` | 多格式文本解析器（JSON / LANG / TXT / INI / XML / YAML / SII / TSV） |
+| `parser.py` | 多格式文本解析器（JSON / LANG / TXT / INI / XML / YAML / SII / TSV / VDF） |
 | `translator.py` | 任意 OpenAI 兼容供应商批量翻译（custom / agnes / 通义 / DeepSeek）+ SHA-256 缓存 |
 | `writer.py` | 回写翻译结果，保持原格式，支持 copy / inplace 两种模式 |
 | `reporter.py` | 生成清晰的汉化报告（成功 / 跳过 / 失败统计） |
@@ -209,18 +209,20 @@ python -m pytest tests/ -v
 pytest tests/ -v
 ```
 
-所有测试均在 Windows + Python 3.14 环境下通过（72 tests passed）。
+所有测试均在 Windows + Python 3.14 环境下通过（77 tests passed，含新增 VDF UTF-16 用例）。
 
 ### 真实汉化测试
 
 结合真实游戏文件做了端到端汉化验证（使用 agnes ai），结果已归档到 [`tests/reports/`](tests/reports/README.md)：
 
 - ✅ **REPO**（怪兽跑图）：`Menu/HUD/Game.tsv` 共 **603** 条，全部真实翻译并回写为 TSV，成功 602 条
-- 🔍 其它 Steam 游戏（Portal 2 / Isaac / Biped 2 等）：扫描结论是文本多封装于私有资源包，详见测试报告
+- ✅ **Portal 2**：Source 引擎 VDF（UTF-16）端到端汉化，`basemodui_english.txt` 共 2231 条明文可翻译，回写保留 UTF-16 BOM
+- ✅ **Biped 2**：`localization_en.txt` 明文 `key=value` 928 条，可直接汉化
+- 🔍 其余游戏（Isaac / Palworld / CSGO 等）：文本封装于私有资源包或仅引擎配置，详见测试报告
 
 ## 欢迎补充游戏库
 
-本工具支持任意**明文文本格式**的游戏/模组。如果你的游戏文案以明文文件（`.json` / `.tsv` / `.lang` / `.sii` 等）存储，欢迎通过 Issue / PR 补充游戏库，一起扩展现有解析器。详细指引见 [`tests/reports/`](tests/reports/README.md)。
+本工具支持任意**明文文本格式**的游戏/模组。如果你的游戏文案以明文文件（`.json` / `.tsv` / `.lang` / `.sii` / `.vdf` 等）存储，欢迎通过 Issue / PR 补充游戏库，一起扩展现有解析器。详细指引见 [`tests/reports/`](tests/reports/README.md)。
 
 ## 与现有工具链的关系
 

@@ -29,6 +29,25 @@ class ParseError(Exception):
     pass
 
 
+_TEXT_BOMS: tuple[tuple[bytes, str], ...] = (
+    (b"\xff\xfe", "utf-16-le"),
+    (b"\xfe\xff", "utf-16-be"),
+    (b"\xef\xbb\xbf", "utf-8-sig"),
+)
+
+
+def decode_text(data: bytes) -> str:
+    """按 BOM 检测并解码文本：UTF-8 / UTF-16 Liitle-Endian / UTF-16 Big-Endian。
+
+    无 BOM 时按 UTF-8 容错解码（损耗可接受）。UTF-16 解码会残留 U+FEFF
+    BOM 字符，统一剥离到首个非空白字符之前。
+    """
+    for bom, enc in _TEXT_BOMS:
+        if data.startswith(bom):
+            return data.decode(enc).lstrip("\ufeff")
+    return data.decode("utf-8", errors="replace").lstrip("\ufeff")
+
+
 # ── 各格式解析函数（模块级，便于存入 _PARSERS 字典）────────────────────────
 
 def _parse_json(data: bytes) -> dict[str, str]:
@@ -78,6 +97,41 @@ def _parse_txt(data: bytes) -> dict[str, str]:
                 result[f"line_{i}"] = stripped
         else:
             result[f"line_{i}"] = stripped
+    return result
+
+
+_VDF_DUP_SUFFIX = "##_DUP_"
+_VDF_SKIP_KEYS = frozenset({"lang", "Language", "Tokens", "Platforms", "...", "$POSITION"})
+
+def _parse_vdf(data: bytes) -> dict[str, str]:
+    """Valve VDF 语言文件解析（Source 引擎，如 Portal 2 / HL2 / L4D）。
+
+    结构： "lang" { "Language" "English" "Tokens" { "key" "value" ... } }
+    支持 UTF-8 / UTF-16（LE/BE/BOM 自动检测）。
+    支持重复 key（平台条件，如 [$WIN32]），用 `##_DUP_N` 后缀保序，
+    回写时可无损还原。
+    """
+    text = decode_text(data)
+    result: dict[str, str] = {}
+    seen: dict[str, int] = {}
+    key_re = re.compile(r'^\s*"([^"]+)"\s+"(.*)"\s*\[?[^]]*\]?\s*$')
+    for raw in text.splitlines():
+        line = raw.rstrip()
+        m = key_re.match(line)
+        if not m:
+            continue
+        key, value = m.group(1).strip(), m.group(2)
+        # 跳过结构关键字（lang / Language / Tokens / Platforms 等）
+        if key in _VDF_SKIP_KEYS:
+            continue
+        # 值可能含转义后的引号，移除行尾条件标记后的残留
+        value = value.replace('\\"', '"')
+        if key not in seen:
+            seen[key] = 0
+            result[key] = value
+        else:
+            seen[key] += 1
+            result[f"{key}{_VDF_DUP_SUFFIX}{seen[key]}"] = value
     return result
 
 
@@ -219,6 +273,7 @@ _PARSERS: dict[str, callable] = {
     "json": _parse_json,
     "lang": _parse_lang,
     "txt": _parse_txt,
+    "vdf": _parse_vdf,
     "ini": _parse_ini,
     "xml": _parse_xml,
     "yaml": _parse_yaml,
@@ -237,8 +292,23 @@ class TextParser:
             raise ValueError(f"不支持的格式: {fmt!r}")
         return parser(data)
 
+    @staticmethod
+    def looks_like_vdf(data: bytes) -> bool:
+        """按内容嗅探是否为 Valve VDF 语言文件（`"key" "value"` 形式），支持 UTF-16。"""
+        text = decode_text(data)
+        lines = [l.strip() for l in text.splitlines() if l.strip()]
+        if not lines:
+            return False
+        head = lines[0]
+        if head == '"lang"' or head in ("{", '"lang" {'):
+            kv_lines = sum(
+                1 for l in lines if re.match(r'^"[^"]+"\s+".*"', l)
+            )
+            return kv_lines > 3
+        return False
+
     @classmethod
-    def guess_format_from_path(cls, path: Path) -> str:
+    def guess_format_from_path(cls, path: Path, data: bytes | None = None) -> str:
         ext = path.suffix.lower()
         if ext == ".sii":
             return "sii"
@@ -246,6 +316,8 @@ class TextParser:
             return "lang"
         if ext == ".tsv":
             return "tsv"
+        if ext == ".txt" and data is not None and cls.looks_like_vdf(data):
+            return "vdf"
         if ext in (".json", ".txt", ".ini", ".xml", ".yaml", ".yml"):
             return "yaml" if ext == ".yml" else ext.lstrip(".")
         return "txt"

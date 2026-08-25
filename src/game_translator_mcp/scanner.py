@@ -18,8 +18,10 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Iterable, Optional
 
+from .parser import TextParser
+
 SUPPORTED_EXTENSIONS: frozenset[str] = frozenset({
-    ".json", ".lang", ".txt", ".ini", ".xml", ".yaml", ".yml", ".sii",
+    ".json", ".lang", ".txt", ".ini", ".xml", ".yaml", ".yml", ".sii", ".tsv", ".vdf",
 })
 
 SKIP_PATTERNS: frozenset[str] = frozenset({
@@ -43,13 +45,16 @@ class TranslatableFile:
         return self.path.name
 
 
-def _detect_format(path: Path) -> Optional[str]:
+def _detect_format(path: Path, data: bytes | None = None) -> Optional[str]:
     ext = path.suffix.lower()
     if ext == ".json":
         return "json"
     if ext == ".lang":
         return "lang"
     if ext in (".txt",):
+        # .txt 可能是 Valve VDF 语言文件（Source 引擎，如 Portal 2），按内容嗅探
+        if data is not None and TextParser.looks_like_vdf(data):
+            return "vdf"
         return "txt"
     if ext == ".ini":
         return "ini"
@@ -61,6 +66,8 @@ def _detect_format(path: Path) -> Optional[str]:
         return "sii"
     if ext == ".tsv":
         return "tsv"
+    if ext == ".vdf":
+        return "vdf"
     return None
 
 
@@ -101,14 +108,14 @@ def scan_directory(
             continue
         if _should_skip(path, base):
             continue
-        fmt = _detect_format(path)
-        if fmt is None:
-            continue
         try:
             size = path.stat().st_size
             if size > max_size:
                 continue
             data = path.read_bytes()
+            fmt = _detect_format(path, data)
+            if fmt is None:
+                continue
             line_count = data.count(b"\n") + data.count(b"\r")
             results.append(TranslatableFile(
                 path=path,
