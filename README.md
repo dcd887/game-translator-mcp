@@ -31,14 +31,16 @@
 | Python | ≥ 3.10 |
 | 依赖 | 见 `pyproject.toml`（mcp、openai、pydantic 等） |
 | 联网 | 必须能联网调用 AI 翻译 API |
-| API Key | 必须配置一个可用的 OpenAI 兼容翻译供应商（见下方「配置」），这是翻译能力的必要前提 |
+| API Key | **不绑定任何特定供应商**。由使用者自任选一个 OpenAI 兼容供应商，提供 key / base_url / 模型名（见下方「配置」），这是翻译能力的必要前提 |
+| 可移植性 | 纯 Python + 标准依赖，可在 Windows / macOS / Linux 本地跑通，无平台耦合 |
 | 授权 | 汉化后的文本仅限个人学习 / 非商业用途；商用需确认游戏与模组的二次分发条款 |
 
-**可选的 AI 供应商**（配置任一即启用）：
+**AI 供应商完全由使用者配置**（检测哪个 key 已配置就用哪个，优先级 `custom > agnes > dashscope > deepseek`）：
 
-- **agnes ai**（首选，通用 OpenAI 兼容）：`AGNES_API_KEY` + `AGNES_BASE_URL` + `AGNES_MODEL`
-- **通义千问**（备选）：`DASHSCOPE_API_KEY`
-- **DeepSeek**（备选 fallback）：`DEEPSEEK_API_KEY`
+- **自定义 OpenAI 兼容供应商**（推荐，最通用）：`TRANSLATOR_API_KEY` + `TRANSLATOR_BASE_URL` + `TRANSLATOR_MODEL`，任意兼容接口平台都可用
+- **agnes ai**：`AGNES_API_KEY` + `AGNES_BASE_URL` + `AGNES_MODEL`
+- **通义千问**：`DASHSCOPE_API_KEY`
+- **DeepSeek**（可选 fallback）：`DEEPSEEK_API_KEY`
 
 ## 安装
 
@@ -49,34 +51,39 @@ pip install -e ".[dev]"
 
 ## 配置
 
-复制 `.env.example` 为 `.env` 并填入 API Key：
+复制 `.env.example` 为 `.env` 并填写你要用的供应商：
 
 ```bash
 cp .env.example .env
 ```
 
-必填项（三选一即可）：
+任选一种方式（检测到哪个 key 就用哪个，优先级 `custom > agnes > dashscope > deepseek`）：
 
 ```bash
-# 首选：agnes ai（通用 OpenAI 兼容供应商）
-AGNES_API_KEY=sk-xxx
-AGNES_BASE_URL=https://apihub.agnes-ai.com/v1
-AGNES_MODEL=agnes-2.5-flash
+# 方式 A（推荐，最通用）：自定义 OpenAI 兼容供应商 —— 填你自己的 key / 网关地址 / 模型名
+TRANSLATOR_API_KEY=sk-xxx
+TRANSLATOR_BASE_URL=https://your-gateway.example.com/v1
+TRANSLATOR_MODEL=your-model
 
-# 或备选：通义千问
+# 方式 B：agnes ai（也可展开为 OpenAi 兼容平台）
+# AGNES_API_KEY=sk-xxx
+# AGNES_BASE_URL=https://apihub.agnes-ai.com/v1
+# AGNES_MODEL=agnes-2.5-flash
+
+# 方式 C：通义千问
 # DASHSCOPE_API_KEY=sk-your-qwen-key-here
-# DEEPSEEK_API_KEY=          # 可选，主供应商失败时自动 fallback
+
+# 方式 D：DeepSeek（可选，主供应商失败时 fallback）
+# DEEPSEEK_API_KEY=
 
 BATCH_SIZE=15                # 每批翻译条数，越高越省 token
 OUTPUT_DIR=translated_output # 汉化输出目录
 ```
 
-API Key 申请：
-- agnes ai：向 [apihub.agnes-ai.com](https://apihub.agnes-ai.com) 申请
-- 通义千问：[阿里云百炼控制台](https://bailian.console.aliyun.com/)
-- DeepSeek：[DeepSeek 开放平台](https://platform.deepseek.com/)
-
 > 配置优先级：先读环境变量，其次读项目根目录 `.env` 文件，最后为内置默认值。
+> API Key 由使用者自备，自行寻求对应平台申请（如 agnes / 通义 / DeepSeek / 其它 OpenAI 兼容网关）。
+
+> **可移植性**：本工具不绑定任何云服务供应商，只要在目标机器配置好上述任一套 API 参数即可本地运行，适用于 CI、Docker 或任意平台。
 
 ## 启动方式
 
@@ -154,7 +161,7 @@ python -m game_translator_mcp steam
 
 ```bash
 # 汉化一个模组目录
-python -m game_translator_mcp translate "C:/Users/kjds/Desktop/games/my-mod" --modid mymod
+python -m game_translator_mcp translate "path/to/my-mod" --modid mymod
 
 # 输出目录默认为 translated_output/
 # 汉化报告自动生成到 translated_output/report.txt
@@ -179,7 +186,7 @@ translated_output/
 |------|------|
 | `scanner.py` | 扫描游戏目录，识别可翻译文件，过滤二进制/大文件 |
 | `parser.py` | 多格式文本解析器（JSON / LANG / TXT / INI / XML / YAML / SII / TSV） |
-| `translator.py` | OpenAI 兼容供应商批量翻译（agnes / 通义 / DeepSeek）+ SHA-256 缓存 |
+| `translator.py` | 任意 OpenAI 兼容供应商批量翻译（custom / agnes / 通义 / DeepSeek）+ SHA-256 缓存 |
 | `writer.py` | 回写翻译结果，保持原格式，支持 copy / inplace 两种模式 |
 | `reporter.py` | 生成清晰的汉化报告（成功 / 跳过 / 失败统计） |
 | `steam.py` | Steam 游戏发现，解析 VDF 索引文件 |
@@ -191,7 +198,7 @@ translated_output/
 1. **智能缓存**：对 `{modid}::key::value` 做 SHA-256 哈希，相同原文只翻译一次，结果持久化到 `translator_cache.json`
 2. **已有汉化跳过**：若输出目录中已存在相同格式的翻译文件，自动跳过，避免覆盖社区翻译
 3. **批量翻译**：每条请求携带最多 `BATCH_SIZE` 个条目，一次 API 调用返回全部结果，大幅降低 token 和延迟
-4. **fallback 策略**：通义千问失败时自动尝试 DeepSeek，确保翻译服务高可用
+4. **供应商自适应**：检测用户配置了哪个 key 就用哪个（custom > agnes > dashscope），可选 DeepSeek 做 fallback，不绑定任何一家
 5. **零侵入输出**：默认 copy 模式生成独立输出目录，不修改原游戏文件
 
 ## 测试

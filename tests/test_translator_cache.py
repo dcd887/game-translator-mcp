@@ -55,7 +55,8 @@ class TestTranslationCache:
 
 class TestTranslConfig:
     def test_defaults(self):
-        cfg = TranslConfig()
+        # 不使用本机 .env，确保在任何机器/CI 上测试结果一致（可移植性）
+        cfg = TranslConfig(_env_file=None)
         assert cfg.dashscope_api_key == ""
         assert cfg.deepseek_api_key == ""
         assert cfg.qwen_model == "qwen-plus"
@@ -64,24 +65,36 @@ class TestTranslConfig:
         assert cfg.agnes_api_key == ""
         assert "apihub.agnes-ai.com" in cfg.agnes_base_url
         assert cfg.agnes_model == "agnes-2.5-flash"
+        assert cfg.translator_api_key == ""
+        assert cfg.translator_base_url == ""
+        assert cfg.translator_model == ""
 
     def test_from_env(self, monkeypatch: pytest.FixtureRequest):
         monkeypatch.setenv("DASHSCOPE_API_KEY", "sk-test")
         monkeypatch.setenv("DEEPSEEK_API_KEY", "ds-test")
-        cfg = TranslConfig()
+        cfg = TranslConfig(_env_file=None)
         assert cfg.dashscope_api_key == "sk-test"
         assert cfg.deepseek_api_key == "ds-test"
+
+    def test_generic_custom_env(self, monkeypatch: pytest.FixtureRequest):
+        monkeypatch.setenv("TRANSLATOR_API_KEY", "gen-test")
+        monkeypatch.setenv("TRANSLATOR_BASE_URL", "https://my-gw.example.com/v1")
+        monkeypatch.setenv("TRANSLATOR_MODEL", "my-model")
+        cfg = TranslConfig(_env_file=None)
+        assert cfg.translator_api_key == "gen-test"
+        assert cfg.translator_base_url == "https://my-gw.example.com/v1"
+        assert cfg.translator_model == "my-model"
 
     def test_agnes_from_env(self, monkeypatch: pytest.FixtureRequest):
         monkeypatch.setenv("AGNES_API_KEY", "ag-test")
         monkeypatch.setenv("AGNES_BASE_URL", "https://example.com/v1")
         monkeypatch.setenv("AGNES_MODEL", "custom-model")
-        cfg = TranslConfig()
+        cfg = TranslConfig(_env_file=None)
         assert cfg.agnes_api_key == "ag-test"
         assert cfg.agnes_base_url == "https://example.com/v1"
         assert cfg.agnes_model == "custom-model"
 
     def test_batch_size_override(self, monkeypatch: pytest.FixtureRequest):
         monkeypatch.setenv("BATCH_SIZE", "30")
-        cfg = TranslConfig()
+        cfg = TranslConfig(_env_file=None)
         assert cfg.batch_size == 30
