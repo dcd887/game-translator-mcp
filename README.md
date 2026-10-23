@@ -1,22 +1,8 @@
+mcp-name: io.github.dcd887/game-translator
+
 # game-translator-mcp
 
-通用游戏汉化 MCP 工具 —— 扫描游戏目录，调用 AI 翻译，回写中文文本。  
-*A general-purpose game localization MCP server: scan a game directory, translate text files through an LLM, and write the result back in place.*
-
-[English README](README.en.md) · [支持的游戏清单](SUPPORTED_GAMES.md)
-
-```mermaid
-flowchart LR
-    A[scan_game_directory] --> B[格式识别<br/>19 种文本格式]
-    B --> C[preview_translate_game<br/>零成本估量]
-    C --> D[translate_game]
-    D --> E[LLM 翻译<br/>按批 + 缓存]
-    E --> F[回写 / copy 模式<br/>不改原文件]
-    F --> G[报告<br/>条目数 / 跳过原因]
-```
-
-**MCP 工具**：`scan_game_directory` · `preview_translate_game` · `translate_game` · `dry_run_translate` · `list_steam_games`
-
+通用游戏汉化 MCP 工具 —— 扫描游戏目录，调用 AI 翻译，回写中文文本。
 
 > 定位：一个可以被 AI Agent 调用的「汉化能力」，而非独立的汉化软件。可与 mc-translator-mcp、mc-pack-builder-mcp 等工具协同工作。
 
