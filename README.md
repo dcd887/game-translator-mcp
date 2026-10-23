@@ -1,5 +1,7 @@
 # game-translator-mcp
 
+[![M8ven Verified](https://m8ven.ai/badge/mcp/dcd887/game-translator-mcp?variant=verified)](https://m8ven.ai/mcp/dcd887/game-translator-mcp?s=readme)
+
 通用游戏汉化 MCP 工具 —— 扫描游戏目录，调用 AI 翻译，回写中文文本。
 
 > 定位：一个可以被 AI Agent 调用的「汉化能力」，而非独立的汉化软件。可与 mc-translator-mcp、mc-pack-builder-mcp 等工具协同工作。
