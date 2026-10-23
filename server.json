@@ -1,0 +1,20 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "io.github.dcd887/game-translator",
+  "description": "游戏文本本地化 MCP：多格式解析、批量翻译、回写",
+  "version": "0.2.0",
+  "repository": {
+    "url": "https://github.com/dcd887/game-translator-mcp",
+    "source": "github"
+  },
+  "packages": [
+    {
+      "registryType": "pypi",
+      "identifier": "game-translator-mcp",
+      "version": "0.2.0",
+      "transport": {
+        "type": "stdio"
+      }
+    }
+  ]
+}
