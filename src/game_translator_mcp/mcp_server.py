@@ -15,6 +15,7 @@ from pathlib import Path
 from typing import Any, Optional
 
 from mcp.server.fastmcp import FastMCP
+from mcp.types import ToolAnnotations
 from pydantic import BaseModel
 
 from .translator import TranslConfig, TranslationCache, Translator
@@ -47,7 +48,13 @@ class TranslateResult(BaseModel):
 # ============================================================
 # 工具 1：scan_game_directory
 # ============================================================
-@mcp.tool()
+@mcp.tool(annotations=ToolAnnotations(
+    title="扫描游戏目录",
+    readOnlyHint=True,
+    destructiveHint=False,
+    idempotentHint=True,
+    openWorldHint=False,
+))
 async def scan_game_directory(
     directory: str,
     extensions: Optional[list[str]] = None,
@@ -97,7 +104,13 @@ async def scan_game_directory(
 # ============================================================
 # 工具 2：translate_game
 # ============================================================
-@mcp.tool()
+@mcp.tool(annotations=ToolAnnotations(
+    title="执行游戏汉化",
+    readOnlyHint=False,
+    destructiveHint=False,
+    idempotentHint=False,
+    openWorldHint=True,
+))
 async def translate_game(
     directory: str,
     modid: str = "game",
@@ -198,7 +211,13 @@ async def translate_game(
 # ============================================================
 # 工具 3：preview_translate_game（零成本预览，不调 AI API）
 # ============================================================
-@mcp.tool()
+@mcp.tool(annotations=ToolAnnotations(
+    title="预览汉化范围",
+    readOnlyHint=True,
+    destructiveHint=False,
+    idempotentHint=True,
+    openWorldHint=False,
+))
 async def preview_translate_game(directory: str, max_size_mb: Optional[float] = None) -> str:
     """（零成本）预览汉化范围：列出将被处理的文件、每种格式数量、总条目数与预估翻译量。
 
@@ -253,7 +272,13 @@ async def preview_translate_game(directory: str, max_size_mb: Optional[float] = 
 # ============================================================
 # 工具 3：dry_run_translate
 # ============================================================
-@mcp.tool()
+@mcp.tool(annotations=ToolAnnotations(
+    title="抽样试译",
+    readOnlyHint=True,
+    destructiveHint=False,
+    idempotentHint=False,
+    openWorldHint=True,
+))
 async def dry_run_translate(
     directory: str,
     modid: str = "game",
@@ -314,7 +339,13 @@ async def dry_run_translate(
 # ============================================================
 # 工具 4：list_steam_games
 # ============================================================
-@mcp.tool()
+@mcp.tool(annotations=ToolAnnotations(
+    title="列出 Steam 游戏",
+    readOnlyHint=True,
+    destructiveHint=False,
+    idempotentHint=True,
+    openWorldHint=False,
+))
 async def list_steam_games() -> str:
     """列出 Steam 库中已安装且包含可翻译文件的游戏。"""
     games = discover_steam_games()
